@@ -18,12 +18,26 @@
 #define errx(n, msg, ...) { fprintf(stderr, (msg "\n") __VA_OPT__(,) __VA_ARGS__); exit((n)); }
 #define err(n, msg, ...) { fprintf(stderr, (msg ": %s\n") __VA_OPT__(,) __VA_ARGS__, strerror(errno)); exit((n)); }
 
+void alarm_handler(int signum);
+
+void alarm_handler(int signum)
+{
+	errx(1, "Cannot obtain lock");
+}
+
 int main(int argc, char **argv)
 {
-	if (argc < 2) {
-		errx(2, "Usage: %s LOCKFILE [COMMANDS..]", argv[0]);
+	if (argc < 3) {
+		errx(2, "Usage: %s LOCKFILE TIMEOUT [COMMANDS..]", argv[0]);
 	}
 
+	// Parse timeout
+	char *end;
+	long wait_sec = strtol(argv[2], &end, 10);
+	if (*argv[2] == '\0' || *end != '\0' || wait_sec < 0) {
+		errx(3, "Invalid timeout value");
+	}
+	
 	int fd = open(argv[1], O_WRONLY);
 	if (fd == -1) {
 		err(3, "Unable to open %s", argv[1]);
@@ -37,16 +51,27 @@ int main(int argc, char **argv)
 		.l_len = 0,
 		.l_pid = 0,
 	};
+
+	int lock_state;
+	if (wait_sec == 0) {
+		lock_state = fcntl(fd, F_OFD_SETLK, &lock);
+	} else {
+		if (signal(SIGALRM, alarm_handler) == SIG_ERR) {
+			err(3, "Unable to set signal");
+		}
+		alarm(wait_sec);
+		lock_state = fcntl(fd, F_OFD_SETLKW, &lock);
+	}
 	
-	if (fcntl(fd, F_OFD_SETLK, &lock) == -1) {
+	if (lock_state == -1) {
 		if (errno == EWOULDBLOCK) {
-			errx(1, "%s is currently locked!", argv[1]);
+			alarm_handler(SIGALRM);
 		} else {
 			err(3, "Locking failure");
 		}
 	}
 
-	if (argc == 2) {
+	if (argc == 3) {
 		// Holding the lock in a child process
 		pid_t pid = fork();
 		if (pid == -1) {
@@ -70,7 +95,7 @@ int main(int argc, char **argv)
 		}
 	} else {
 		// Exec mode (child holds the lock)
-		execvp(argv[2], argv+2);
+		execvp(argv[3], argv+3);
 		err(4, "Unable to start process");
 	}
 }
