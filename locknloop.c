@@ -18,6 +18,10 @@
 #include <sys/ioctl.h>
 #include <stdbool.h>
 
+#define MSG_TIMEOUT "File is still locked!"
+#define MSG_LOCKED_NB "The file is locked by another process!"
+#define MSG_WAIT "File is currently locked by another process. Waiting for %ld seconds..."
+
 // Not included in klibc, so must include here
 #define warnx(msg, ...) { fprintf(stderr, (msg "\n") __VA_OPT__(,) __VA_ARGS__); }
 #define warn(msg, ...) { fprintf(stderr, (msg ": %s\n") __VA_OPT__(,) __VA_ARGS__, strerror(errno)); }
@@ -29,7 +33,7 @@ long parse_int(char const *s);
 
 void alarm_handler(int signum)
 {
-	errx(1, "File is still locked!");
+	errx(1, MSG_TIMEOUT);
 }
 
 long parse_int(char const *s) {
@@ -74,10 +78,10 @@ int main(int argc, char **argv)
 		// We already got the lock
 	} else if (wait_sec == 0) {
 		// Waiting without timeout
-		errx(1, "The file is locked by another process!");
+		errx(1, MSG_LOCKED_NB);
 	} else {
 		// Wait with a timeout
-		warnx("File is currently locked by another process. Waiting for %ld seconds...", wait_sec);
+		warnx(MSG_WAIT, wait_sec);
 		
 		if (signal(SIGALRM, alarm_handler) == SIG_ERR) {
 			err(3, "Unable to set signal handler");
