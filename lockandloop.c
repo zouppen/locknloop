@@ -13,16 +13,21 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+#include <linux/loop.h>
+#include <sys/ioctl.h>
 
 // Not included in klibc, so must include here
-#define errx(n, msg, ...) { fprintf(stderr, (msg "\n") __VA_OPT__(,) __VA_ARGS__); exit((n)); }
-#define err(n, msg, ...) { fprintf(stderr, (msg ": %s\n") __VA_OPT__(,) __VA_ARGS__, strerror(errno)); exit((n)); }
+#define warnx(msg, ...) { fprintf(stderr, (msg "\n") __VA_OPT__(,) __VA_ARGS__); }
+#define warn(msg, ...) { fprintf(stderr, (msg ": %s\n") __VA_OPT__(,) __VA_ARGS__, strerror(errno)); }
+#define errx(n, ...) { warnx(__VA_ARGS__); exit((n)); }
+#define err(n, ...) { warn(__VA_ARGS__); exit((n)); }
 
 void alarm_handler(int signum);
 
 void alarm_handler(int signum)
 {
-	errx(1, "Cannot obtain lock");
+	errx(1, "The file is locked by another process!");
 }
 
 int main(int argc, char **argv)
@@ -61,6 +66,7 @@ int main(int argc, char **argv)
 		}
 		alarm(wait_sec);
 		lock_state = fcntl(fd, F_OFD_SETLKW, &lock);
+		alarm(0);
 	}
 	
 	if (lock_state == -1) {
@@ -71,31 +77,38 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (argc == 3) {
-		// Holding the lock in a child process
-		pid_t pid = fork();
-		if (pid == -1) {
-			err(3, "Unable to fork");
-		} else if (pid == 0) {
-			// I'm the child. We have no way to go back, so no
-			// point in checking errors.
+	// Prepare loop device
+	int loopctlfd, loopfd;
+	long devnr;
+	char *loopname;
 
-			// Closing file descriptors except the
-			// lock. close_range should be used but we want to be
-			// compatible with legacy linuxes, too.
-			close(0);
-			close(1);
-			close(2);
-
-			// Wait forever
-			pause();
-		} else {
-			// Report the holding PID
-			printf("%d\n", pid);
-		}
-	} else {
-		// Exec mode (child holds the lock)
-		execvp(argv[3], argv+3);
-		err(4, "Unable to start process");
+	loopctlfd = open("/dev/loop-control", O_RDWR);
+	if (loopctlfd == -1) {
+		err(3, "Unable to open: /dev/loop-control");
 	}
+
+	// Due to klibc bug, third parameter is required
+	devnr = ioctl(loopctlfd, LOOP_CTL_GET_FREE, 0);
+	if (devnr == -1) {
+		err(3,"ioctl-LOOP_CTL_GET_FREE");
+	}
+
+	asprintf(&loopname, "/dev/loop%ld", devnr);
+
+	loopfd = open(loopname, O_RDWR);
+	if (loopfd == -1) {
+		err(3, "Unable to open loop %s", loopname);
+	}
+
+	if (ioctl(loopfd, LOOP_SET_FD, fd) == -1) {
+		err(3, "Unable to set up loop device");
+	}
+
+	if (ioctl(loopfd, LOOP_SET_DIRECT_IO, 1) == -1) {
+		warnx("Opened the loop device without direct I/O");
+	}
+
+	printf("%s\n", loopname);
+	
+	exit(EXIT_SUCCESS);
 }
