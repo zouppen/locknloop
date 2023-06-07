@@ -16,6 +16,7 @@
 #include <signal.h>
 #include <linux/loop.h>
 #include <sys/ioctl.h>
+#include <stdbool.h>
 
 // Not included in klibc, so must include here
 #define warnx(msg, ...) { fprintf(stderr, (msg "\n") __VA_OPT__(,) __VA_ARGS__); }
@@ -24,24 +25,30 @@
 #define err(n, ...) { warn(__VA_ARGS__); exit((n)); }
 
 void alarm_handler(int signum);
+long parse_int(char const *s);
 
 void alarm_handler(int signum)
 {
-	errx(1, "The file is locked by another process!");
+	errx(1, "File is still locked!");
+}
+
+long parse_int(char const *s) {
+	char *end;
+	long wait_sec = strtol(s, &end, 10);
+	if (*s == '\0' || *end != '\0' || wait_sec < 0) {
+		errx(3, "Invalid timeout value");
+	}
+	return wait_sec;
 }
 
 int main(int argc, char **argv)
 {
-	if (argc < 3) {
-		errx(2, "Usage: %s LOCKFILE TIMEOUT [COMMANDS..]", argv[0]);
+	if (argc != 2 && argc != 3) {
+		errx(2, "Usage: %s LOCKFILE [TIMEOUT]", argv[0]);
 	}
 
 	// Parse timeout
-	char *end;
-	long wait_sec = strtol(argv[2], &end, 10);
-	if (*argv[2] == '\0' || *end != '\0' || wait_sec < 0) {
-		errx(3, "Invalid timeout value");
-	}
+	long wait_sec = argc == 3 ? parse_int(argv[2]) : 0;
 	
 	int fd = open(argv[1], O_WRONLY);
 	if (fd == -1) {
@@ -57,45 +64,49 @@ int main(int argc, char **argv)
 		.l_pid = 0,
 	};
 
-	int lock_state;
-	if (wait_sec == 0) {
-		lock_state = fcntl(fd, F_OFD_SETLK, &lock);
+	// First, try locking without blocking to show if we are waiting
+	bool ok = fcntl(fd, F_OFD_SETLK, &lock) != -1;
+	if (!ok && errno != EWOULDBLOCK) {
+		err(3, "Locking failure");
+	}
+
+	if (ok) {
+		// We already got the lock
+	} else if (wait_sec == 0) {
+		// Waiting without timeout
+		errx(1, "The file is locked by another process!");
 	} else {
+		// Wait with a timeout
+		warnx("File is currently locked by another process. Waiting for %ld seconds...", wait_sec);
+		
 		if (signal(SIGALRM, alarm_handler) == SIG_ERR) {
-			err(3, "Unable to set signal");
+			err(3, "Unable to set signal handler");
 		}
 		alarm(wait_sec);
-		lock_state = fcntl(fd, F_OFD_SETLKW, &lock);
+		int lock_state = fcntl(fd, F_OFD_SETLKW, &lock);
 		alarm(0);
-	}
-	
-	if (lock_state == -1) {
-		if (errno == EWOULDBLOCK) {
-			alarm_handler(SIGALRM);
-		} else {
+
+		if (lock_state == -1) {
 			err(3, "Locking failure");
 		}
 	}
 
-	// Prepare loop device
-	int loopctlfd, loopfd;
-	long devnr;
-	char *loopname;
-
-	loopctlfd = open("/dev/loop-control", O_RDWR);
+	// Prepare the loop device
+	int loopctlfd = open("/dev/loop-control", O_RDWR);
 	if (loopctlfd == -1) {
 		err(3, "Unable to open: /dev/loop-control");
 	}
 
-	// Due to klibc bug, third parameter is required
-	devnr = ioctl(loopctlfd, LOOP_CTL_GET_FREE, 0);
+	// Due to klibc bug, third parameter is required here
+	long devnr = ioctl(loopctlfd, LOOP_CTL_GET_FREE, 0);
 	if (devnr == -1) {
 		err(3,"ioctl-LOOP_CTL_GET_FREE");
 	}
 
+	char *loopname;
 	asprintf(&loopname, "/dev/loop%ld", devnr);
 
-	loopfd = open(loopname, O_RDWR);
+	int loopfd = open(loopname, O_RDWR);
 	if (loopfd == -1) {
 		err(3, "Unable to open loop %s", loopname);
 	}
@@ -109,6 +120,6 @@ int main(int argc, char **argv)
 	}
 
 	printf("%s\n", loopname);
-	
+
 	exit(EXIT_SUCCESS);
 }
