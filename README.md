@@ -8,6 +8,9 @@ The lock is compatible with QEMU locking so this can be used to mark
 an images as mounted so you don't accidentally run QEMU on the same
 image.
 
+The lock is automatically released when the loop device is detached
+(`losetup -d`).
+
 ## Compiling
 
 This compiles with both klibc and glibc. The glibc build doesn't
