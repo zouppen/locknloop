@@ -53,5 +53,5 @@ In case you have very specific use case where you need to alter the
 messages, you can provide them compile time.
 
 ```sh
-gcc '-DMSG_WAIT="Ohjelmistopäivitykset ovat meneillään. Odotetaan %ld sekuntia."' '-DMSG_TIMEOUT="Ohjelmistopäivitykset ovat yhä kesken. Sammutetaan!"' -Wall -o locknloop locknloop.c
+klcc -static '-DMSG_WAIT="Ohjelmistopäivitykset ovat meneillään. Odotetaan %ld sekuntia."' '-DMSG_TIMEOUT="Ohjelmistopäivitykset ovat yhä kesken. Sammutetaan!"' -o locknloop locknloop.c
 ```
