@@ -1,9 +1,9 @@
 /**
- * NFSv4 compatible file locker. Forks process which holds the lock
- * while returning immediately. In case of locking failure, error is
- * reported.
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Copyright (C) 2023 Joel Lehtonen
  *
- * Compiling: klcc -Wall -s -static -o filelocker main-rangelock-klcc.c
+ * NFSv4 compatible file locker which passes the lock to the kernel
+ * loop device. In case of locking failure, error is reported.
  */
 
 #define _GNU_SOURCE
