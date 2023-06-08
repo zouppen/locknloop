@@ -18,9 +18,15 @@
 #include <sys/ioctl.h>
 #include <stdbool.h>
 
+#ifndef MSG_TIMEOUT
 #define MSG_TIMEOUT "File is still locked!"
+#endif
+#ifndef MSG_LOCKED_NB
 #define MSG_LOCKED_NB "The file is locked by another process!"
+#endif
+#ifndef MSG_WAIT
 #define MSG_WAIT "File is currently locked by another process. Waiting for %ld seconds..."
+#endif
 
 // Not included in klibc, so must include here
 #define warnx(msg, ...) { fprintf(stderr, (msg "\n") __VA_OPT__(,) __VA_ARGS__); }
