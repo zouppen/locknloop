@@ -1,15 +1,15 @@
 # Lock'n'loop
 
 Locks a file using Linux Open File Descriptor (OFD) API and
-sets up a loop device with direct IO enabled, if supported by the
+sets up a loop device with direct I/O enabled, if supported by the
 underlying file system.
 
 The lock is compatible with NFSv4 and with QEMU locking. This software
 was written for a network booting setup where it is necessary to run
 software updates with QEMU on the host but never at the same time when
 that image is mounted over NFS. When using NFS, make sure NFSv4 is
-used because OFD locking is NFSv4 feature (e.g. by using `nfsvers=4.2`
-mount option)
+used because OFD locking is not supported in earlier versions of NFS.
+In my case, I'm ensuring it by using `nfsvers=4.2` mount option.
 
 Of course, this software can be used to lock disk image files on a
 local system, too.
@@ -65,8 +65,8 @@ Command outputs the freshly created loop device.
 
 ## Localization
 
-In case you have very specific use case where you need to alter the
-messages, you can provide them compile time.
+In case you have a very specific use case where you need to alter the
+messages, you can provide them at compile time.
 
 ```sh
 klcc -static '-DMSG_WAIT="Ohjelmistopäivitykset ovat meneillään. Odotetaan %ld sekuntia."' '-DMSG_TIMEOUT="Ohjelmistopäivitykset ovat yhä kesken. Sammutetaan!"' -o locknloop locknloop.c
