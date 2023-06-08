@@ -1,6 +1,6 @@
 # Lock'n'loop
 
-Locks the image file using Linux Open File Descriptor (OFD) API and
+Locks a file using Linux Open File Descriptor (OFD) API and
 sets up a loop device with direct IO enabled, if supported by the
 underlying file system.
 
@@ -14,7 +14,7 @@ mount option)
 Of course, this software can be used to lock disk image files on a
 local system, too.
 
-The lock is automatically released when the loop device is detached
+The lock is automatically released when the loop device is
 destructed. Because Linux loop devices support lazy device
 destruction, after mounting the image you can safely run `losetup -d`
 to mark the loop device as autoclear. The lock is not released until
