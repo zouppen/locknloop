@@ -39,7 +39,7 @@ To build normally (glibc):
 gcc -Wall -o locknloop locknloop.c
 ```
 
-To build static klibc version:
+To build a static klibc version for initramfs:
 
 ```sh
 klcc -static -o locknloop locknloop.c
