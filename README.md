@@ -42,7 +42,7 @@ gcc -Wall -o locknloop locknloop.c
 To build a static klibc version for initramfs:
 
 ```sh
-klcc -static -o locknloop locknloop.c
+klcc -s -static -o locknloop locknloop.c
 ```
 
 ## Usage
@@ -69,7 +69,7 @@ In case you have a very specific use case where you need to alter the
 messages, you can provide them at compile time.
 
 ```sh
-klcc -static '-DMSG_WAIT="Ohjelmistopäivitykset ovat meneillään. Odotetaan %ld sekuntia."' '-DMSG_TIMEOUT="Ohjelmistopäivitykset ovat yhä kesken. Sammutetaan!"' -o locknloop locknloop.c
+klcc -s -static '-DMSG_WAIT="Ohjelmistopäivitykset ovat meneillään. Odotetaan %ld sekuntia."' '-DMSG_TIMEOUT="Ohjelmistopäivitykset ovat yhä kesken. Sammutetaan!"' -o locknloop locknloop.c
 ```
 
 ## License
