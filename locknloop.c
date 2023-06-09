@@ -73,18 +73,18 @@ int main(int argc, char **argv)
 	};
 
 	// First, try locking without blocking to show if we are waiting
-	bool ok = fcntl(fd, F_OFD_SETLK, &lock) != -1;
-	if (!ok && errno != EWOULDBLOCK) {
+	bool got_lock = fcntl(fd, F_OFD_SETLK, &lock) != -1;
+	if (!got_lock && errno != EWOULDBLOCK) {
 		err(3, "Locking failure");
 	}
 
-	if (ok) {
+	if (got_lock) {
 		// We already got the lock
 	} else if (wait_sec == 0) {
-		// Waiting without timeout
+		// User requested non-blocking action, so quitting
 		errx(1, MSG_LOCKED_NB);
 	} else {
-		// Wait with a timeout
+		// Wait for the lock with a timeout
 		warnx(MSG_WAIT, wait_sec);
 		
 		if (signal(SIGALRM, alarm_handler) == SIG_ERR) {
