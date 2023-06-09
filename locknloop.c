@@ -34,20 +34,20 @@
 #define err(n, ...) { warn(__VA_ARGS__); exit((n)); }
 
 void alarm_handler(int signum);
-long parse_int(char const *s);
+long parse_timeout(char const *s);
 
 void alarm_handler(int signum)
 {
 	errx(1, MSG_TIMEOUT);
 }
 
-long parse_int(char const *s) {
+long parse_timeout(char const *s) {
 	char *end;
-	long wait_sec = strtol(s, &end, 10);
-	if (*s == '\0' || *end != '\0' || wait_sec < 0) {
+	long val = strtol(s, &end, 10);
+	if (*s == '\0' || *end != '\0' || val < 0) {
 		errx(3, "Invalid timeout value");
 	}
-	return wait_sec;
+	return val;
 }
 
 int main(int argc, char **argv)
@@ -56,8 +56,7 @@ int main(int argc, char **argv)
 		errx(2, "Usage: %s LOCKFILE [TIMEOUT]", argv[0]);
 	}
 
-	// Parse timeout
-	long wait_sec = argc == 3 ? parse_int(argv[2]) : 0;
+	long wait_sec = argc == 3 ? parse_timeout(argv[2]) : 0;
 	
 	int fd = open(argv[1], O_WRONLY);
 	if (fd == -1) {
