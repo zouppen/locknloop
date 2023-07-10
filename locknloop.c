@@ -17,6 +17,7 @@
 #include <linux/loop.h>
 #include <sys/ioctl.h>
 #include <stdbool.h>
+#include <err.h>
 
 #ifndef MSG_TIMEOUT
 #define MSG_TIMEOUT "File is still locked!"
@@ -27,12 +28,6 @@
 #ifndef MSG_WAIT
 #define MSG_WAIT "File is currently locked by another process. Waiting for %ld seconds..."
 #endif
-
-// Not included in klibc, so must include here
-#define warnx(msg, ...) { fprintf(stderr, (msg "\n") __VA_OPT__(,) __VA_ARGS__); }
-#define warn(msg, ...) { fprintf(stderr, (msg ": %s\n") __VA_OPT__(,) __VA_ARGS__, strerror(errno)); }
-#define errx(n, ...) { warnx(__VA_ARGS__); exit((n)); }
-#define err(n, ...) { warn(__VA_ARGS__); exit((n)); }
 
 void alarm_handler(int signum);
 long parse_timeout(char const *s);
@@ -106,8 +101,7 @@ int main(int argc, char **argv)
 		err(3, "Unable to open: /dev/loop-control");
 	}
 
-	// Due to klibc bug, third parameter is required here
-	long devnr = ioctl(loopctlfd, LOOP_CTL_GET_FREE, 0);
+	long devnr = ioctl(loopctlfd, LOOP_CTL_GET_FREE);
 	if (devnr == -1) {
 		err(3,"ioctl-LOOP_CTL_GET_FREE");
 	}

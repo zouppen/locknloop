@@ -26,23 +26,13 @@ command doesn't need to hold an open file descriptor. So, unlike
 
 ## Compiling
 
-This compiles with both klibc and glibc. The glibc build doesn't
-produce any compiler warnings but there are some warnings produced
-with `klcc` but those come from the limitations of klibc.
+This compiles with glibc. Due to missing syscall support this doesn't
+unfortunately compile with klibc.
 
-With klibc you can build a small binary for initramfs use, for example
-to lock image files over NFS.
-
-To build normally (glibc):
+To build (glibc):
 
 ```sh
-gcc -Wall -o locknloop locknloop.c
-```
-
-To build a static klibc version for initramfs:
-
-```sh
-klcc -s -static -o locknloop locknloop.c
+gcc -Wall -Os -s -o locknloop locknloop.c
 ```
 
 ## Usage
@@ -69,7 +59,7 @@ In case you have a very specific use case where you need to alter the
 messages, you can provide them at compile time.
 
 ```sh
-klcc -s -static '-DMSG_WAIT="Ohjelmistopäivitykset ovat meneillään. Odotetaan %ld sekuntia."' '-DMSG_TIMEOUT="Ohjelmistopäivitykset ovat yhä kesken. Sammutetaan!"' -o locknloop locknloop.c
+gcc -Wall -Os -s -static '-DMSG_WAIT="Ohjelmistopäivitykset ovat meneillään. Odotetaan %ld sekuntia."' '-DMSG_TIMEOUT="Ohjelmistopäivitykset ovat yhä kesken. Sammutetaan!"' -o locknloop locknloop.c
 ```
 
 ## License
