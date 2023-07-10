@@ -107,7 +107,9 @@ int main(int argc, char **argv)
 	}
 
 	char *loopname;
-	asprintf(&loopname, "/dev/loop%ld", devnr);
+	if (asprintf(&loopname, "/dev/loop%ld", devnr) == -1) {
+		err(3, "Unable to asprintf()");
+	}
 
 	int loopfd = open(loopname, O_RDWR);
 	if (loopfd == -1) {
