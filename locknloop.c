@@ -12,12 +12,14 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <signal.h>
 #include <linux/loop.h>
 #include <sys/ioctl.h>
 #include <stdbool.h>
 #include <err.h>
+#include <getopt.h>
 
 #ifndef MSG_TIMEOUT
 #define MSG_TIMEOUT "File is still locked!"
@@ -31,6 +33,9 @@
 
 void alarm_handler(int signum);
 long parse_timeout(char const *s);
+void help(int exitcode);
+
+char const* bin_name;
 
 void alarm_handler(int signum)
 {
@@ -46,52 +51,94 @@ long parse_timeout(char const *s) {
 	return val;
 }
 
+void help(int exitcode) {
+	fprintf(stderr, "Usage: %s [-n|--no-lock] [-t|--timeout TIMEOUT] [-h|--help] LOCKFILE ]\n", bin_name);
+	exit(exitcode);
+}
+
 int main(int argc, char **argv)
 {
-	if (argc != 2 && argc != 3) {
-		errx(2, "Usage: %s LOCKFILE [TIMEOUT]", argv[0]);
-	}
-
-	long wait_sec = argc == 3 ? parse_timeout(argv[2]) : 0;
+	bin_name = argv[0];
+	bool do_lock = true;
+	long wait_sec = 0;
 	
-	int fd = open(argv[1], O_WRONLY);
-	if (fd == -1) {
-		err(3, "Unable to open %s", argv[1]);
-	}
-
-	// Lock the whole file
-	struct flock lock = {
-		.l_type = F_WRLCK,
-		.l_whence = SEEK_SET,
-		.l_start = 0,
-		.l_len = 0,
-		.l_pid = 0,
-	};
-
-	// First, try locking without blocking to show if we are waiting
-	bool got_lock = fcntl(fd, F_OFD_SETLK, &lock) != -1;
-	if (!got_lock && errno != EWOULDBLOCK) {
-		err(3, "Locking failure");
-	}
-
-	if (got_lock) {
-		// We already got the lock
-	} else if (wait_sec == 0) {
-		// User requested non-blocking action, so quitting
-		errx(1, MSG_LOCKED_NB);
-	} else {
-		// Wait for the lock with a timeout
-		warnx(MSG_WAIT, wait_sec);
+	while (true) {
+		int c;
+		int option_index = 0;
+		static struct option long_options[] = {
+			{"help",    no_argument,       0, 'h'},
+			{"no-lock", no_argument,       0, 'n'},
+			{"timeout", required_argument, 0, 't'},
+			{0,         0,                 0,  0 }
+		};
 		
-		if (signal(SIGALRM, alarm_handler) == SIG_ERR) {
-			err(3, "Unable to set signal handler");
+		c = getopt_long(argc, argv, "hnt:",
+				long_options, &option_index);
+		if (c == -1) {
+			// All processed
+			break;
 		}
-		alarm(wait_sec);
-		int lock_state = fcntl(fd, F_OFD_SETLKW, &lock);
-		alarm(0);
 
-		if (lock_state == -1) {
+		switch (c) {
+		case 'h':
+			help(0);
+			break;
+		case 'n':
+			do_lock = false;
+			break;
+		case 't':
+			wait_sec = parse_timeout(optarg);
+			break;
+		default:
+			exit(2);
+			break;
+		}
+	}
+
+	if (argc != optind + 1) {
+		help(2);
+	}
+
+	int fd = open(argv[optind], O_WRONLY);
+	if (fd == -1) {
+		err(3, "Unable to open %s", argv[optind]);
+	}
+
+	if (do_lock) {
+		// Lock the whole file
+		struct flock lock = {
+			.l_type = F_WRLCK,
+			.l_whence = SEEK_SET,
+			.l_start = 0,
+			.l_len = 0,
+			.l_pid = 0,
+		};
+
+		// First, try locking without blocking to show if we are waiting
+		bool got_lock = fcntl(fd, F_OFD_SETLK, &lock) != -1;
+		if (!got_lock && errno != EWOULDBLOCK) {
 			err(3, "Locking failure");
+		}
+
+		if (got_lock) {
+			// We already got the lock
+		} else if (wait_sec == 0) {
+			// User requested non-blocking action, so quitting
+			errx(1, MSG_LOCKED_NB);
+		} else {
+			// Wait for the lock with a timeout
+			warnx(MSG_WAIT, wait_sec);
+		
+			if (signal(SIGALRM, alarm_handler) == SIG_ERR) {
+				err(3, "Unable to set signal handler");
+			}
+			alarm(wait_sec);
+			int lock_state = fcntl(fd, F_OFD_SETLKW, &lock);
+			alarm(0);
+
+			if (lock_state == -1) {
+				err(3, "Locking failure");
+			}
 		}
 	}
 
@@ -108,7 +155,7 @@ int main(int argc, char **argv)
 
 	char *loopname;
 	if (asprintf(&loopname, "/dev/loop%ld", devnr) == -1) {
-		err(3, "Unable to asprintf()");
+		err(3, "Memory allocation failed");
 	}
 
 	int loopfd = open(loopname, O_RDWR);

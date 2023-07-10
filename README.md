@@ -48,7 +48,7 @@ To lock a file called `file.img`, waiting the lock for maximum of 1
 minute. If lock is not available by then, fail.
 
 ```sh
-./locknloop file.img 60
+./locknloop -t 60 file.img
 ```
 
 Command outputs the freshly created loop device.
