@@ -52,7 +52,7 @@ long parse_timeout(char const *s) {
 }
 
 void help(int exitcode) {
-	fprintf(stderr, "Usage: %s [-n|--no-lock] [-t|--timeout TIMEOUT] [-h|--help] LOCKFILE ]\n", bin_name);
+	fprintf(stderr, "Usage: %s [-n|--no-lock] [-c|--copy FROM] [-t|--timeout TIMEOUT] [-h|--help] LOCKFILE ]\n", bin_name);
 	exit(exitcode);
 }
 
@@ -60,6 +60,7 @@ int main(int argc, char **argv)
 {
 	bin_name = argv[0];
 	bool do_lock = true;
+	char *copy_source = NULL;
 	long wait_sec = 0;
 	
 	while (true) {
@@ -68,11 +69,12 @@ int main(int argc, char **argv)
 		static struct option long_options[] = {
 			{"help",    no_argument,       0, 'h'},
 			{"no-lock", no_argument,       0, 'n'},
+			{"copy",    required_argument, 0, 'c'},
 			{"timeout", required_argument, 0, 't'},
 			{0,         0,                 0,  0 }
 		};
 		
-		c = getopt_long(argc, argv, "hnt:",
+		c = getopt_long(argc, argv, "hnc:t:",
 				long_options, &option_index);
 		if (c == -1) {
 			// All processed
@@ -85,6 +87,12 @@ int main(int argc, char **argv)
 			break;
 		case 'n':
 			do_lock = false;
+			break;
+		case 'c':
+			copy_source = strdup(optarg);
+			if (copy_source == NULL) {
+				err(3, "Memory allocation failed");
+			}
 			break;
 		case 't':
 			wait_sec = parse_timeout(optarg);
@@ -99,9 +107,26 @@ int main(int argc, char **argv)
 		help(2);
 	}
 
-	int fd = open(argv[optind], O_WRONLY);
+	int extra_flags = copy_source == NULL ? 0 : O_CREAT | O_TRUNC;
+	int fd = open(argv[optind], O_WRONLY | extra_flags, S_IRUSR | S_IWUSR);
 	if (fd == -1) {
 		err(3, "Unable to open %s", argv[optind]);
+	}
+
+	if (copy_source != NULL) {
+		// Making a copy first
+		int source_fd = open(copy_source, O_RDONLY);
+		if (source_fd == -1) {
+			err(3, "Unable to open %s", copy_source);
+		}
+		
+		ssize_t copied = copy_file_range(source_fd, NULL, fd, NULL, SIZE_MAX, 0);
+		if (copied == -1) {
+			err(3, "Unable to perform in-kernel copy");
+		}
+		if (close(source_fd) == -1) {
+			err(3, "Unable to close a file");
+		}
 	}
 
 	if (do_lock) {

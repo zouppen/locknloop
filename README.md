@@ -44,6 +44,8 @@ obtained.
 ./locknloop file.img
 ```
 
+### Lock with timeout
+
 To lock a file called `file.img`, waiting the lock for maximum of 1
 minute. If lock is not available by then, fail.
 
@@ -52,6 +54,23 @@ minute. If lock is not available by then, fail.
 ```
 
 Command outputs the freshly created loop device.
+
+### Copy-and-lock
+
+In case you want to make a copy of the file before locking, use `-c`
+flag. It is useful in initramfs to perform a copy-on-write (CoW) copy
+of the image before locking it.
+
+To copy file original.img to runtime.img and lock the latter, run:
+
+```
+./locknloop -c original.img runtime.img
+```
+
+### No locking
+
+This is useful for testing only, by adding option `-n` or `--no-lock`
+the file is not locked at all.
 
 ## Localization
 
