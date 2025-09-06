@@ -7,6 +7,7 @@
  */
 
 #define _GNU_SOURCE
+#define _FILE_OFFSET_BITS 64
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -121,7 +122,7 @@ int main(int argc, char **argv)
 		}
 
 		while (true) {
-			ssize_t copied = copy_file_range(source_fd, NULL, fd, NULL, SIZE_MAX, 0);
+			ssize_t copied = copy_file_range(source_fd, NULL, fd, NULL, 1u<<31, 0);
 			if (copied == -1) {
 				err(3, "Unable to perform in-kernel copy");
 			}
