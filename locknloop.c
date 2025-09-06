@@ -119,11 +119,21 @@ int main(int argc, char **argv)
 		if (source_fd == -1) {
 			err(3, "Unable to open %s", copy_source);
 		}
-		
-		ssize_t copied = copy_file_range(source_fd, NULL, fd, NULL, SIZE_MAX, 0);
-		if (copied == -1) {
-			err(3, "Unable to perform in-kernel copy");
+
+		while (true) {
+			ssize_t copied = copy_file_range(source_fd, NULL, fd, NULL, SIZE_MAX, 0);
+			if (copied == -1) {
+				err(3, "Unable to perform in-kernel copy");
+			}
+			if (copied == 0) {
+				// If the file offset of fd_in is at
+				// or past the end of file, no bytes
+				// are copied, and copy_file_range()
+				// returns zero.
+				break;
+			}
 		}
+
 		if (close(source_fd) == -1) {
 			err(3, "Unable to close a file");
 		}
